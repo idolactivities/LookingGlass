@@ -95,8 +95,21 @@ static void lgVideoTick(void * data, float seconds)
 {
   LGPlugin * this = (LGPlugin *)data;
 
-  if (!this->valid)
-    return;
+  if (!this->valid) {
+    printf("lgVideoTick: Attempting to resubscribe");
+    deinit(this);
+    this->shmFile = bstrdup(obs_data_get_string(obs_source_get_settings(this->context), "shmFile"));
+    if (!ivshmemOpenDev(&this->shmDev, this->shmFile))
+      return;
+
+    if (lgmpClientInit(this->shmDev.mem, this->shmDev.size, &this->lgmp) != LGMP_OK)
+      return;
+
+    if (lgmpClientSubscribe(this->lgmp, LGMP_Q_FRAME, &this->frameQueue) != LGMP_OK)
+      return;
+
+    this->valid = true;
+  }
 
   LGMP_STATUS status;
   LGMPMessage msg;
