@@ -13,6 +13,7 @@ typedef struct
   bool              valid;
   char            * shmFile;
   uint32_t          width, height;
+  float             invalidatedSeconds;
   FrameType         type;
   struct IVSHMEM    shmDev;
   PLGMPClient       lgmp;
@@ -50,6 +51,7 @@ static void deinit(LGPlugin * this)
     ivshmemClose(&this->shmDev);
 
   this->valid = false;
+  this->invalidatedSeconds = 0;
 }
 
 static void lgDestroy(void * data)
@@ -96,7 +98,11 @@ static void lgVideoTick(void * data, float seconds)
   LGPlugin * this = (LGPlugin *)data;
 
   if (!this->valid) {
-    printf("lgVideoTick: Attempting to resubscribe");
+    this->invalidatedSeconds += seconds;
+    if (this->invalidatedSeconds <= 1)
+      return;
+
+    printf("lgVideoTick: Attempting to resubscribe\n");
     deinit(this);
     this->shmFile = bstrdup(obs_data_get_string(obs_source_get_settings(this->context), "shmFile"));
     if (!ivshmemOpenDev(&this->shmDev, this->shmFile))
